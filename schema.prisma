@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id          String   @id @default(uuid())
+  name        String
+  logoUrl     String?
+  primaryColor   String?
+  secondaryColor String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
+  devices     Device[]
+  media       Media[]
+  schedules   Schedule[]
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      String   @default("VIEWER")
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Device {
+  id          String   @id @default(uuid())
+  name        String
+  identifier  String   @unique
+  location    String?
+  status      String   @default("OFFLINE")
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  scheduleId  String?
+  schedule    Schedule? @relation(fields: [scheduleId], references: [id])
+  playlists   Playlist[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Media {
+  id          String          @id @default(uuid())
+  name        String
+  url         String
+  type        String
+  size        Int
+  duration    Int             @default(10000) // Duration in ms
+  tenantId    String
+  tenant      Tenant          @relation(fields: [tenantId], references: [id])
+  playlists   PlaylistMedia[]
+  scheduleBlocks ScheduleBlock[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model Playlist {
+  id          String          @id @default(uuid())
+  name        String
+  devices     Device[]
+  mediaItems  PlaylistMedia[]
+  scheduleBlocks ScheduleBlock[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model PlaylistMedia {
+  id          String   @id @default(uuid())
+  playlistId  String
+  playlist    Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  mediaId     String
+  media       Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  order       Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([playlistId, mediaId])
+  @@index([playlistId, order])
+}
+
+model Schedule {
+  id          String          @id @default(uuid())
+  name        String
+  date        DateTime?       // If null, it's a recurring/default schedule
+  tenantId    String
+  tenant      Tenant          @relation(fields: [tenantId], references: [id])
+  blocks      ScheduleBlock[]
+  devices     Device[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model ScheduleBlock {
+  id          String    @id @default(uuid())
+  scheduleId  String
+  schedule    Schedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  startTime   String    // "08:00"
+  endTime     String    // "12:00"
+  playlistId  String?
+  playlist    Playlist? @relation(fields: [playlistId], references: [id])
+  mediaId     String?
+  media       Media?    @relation(fields: [mediaId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
